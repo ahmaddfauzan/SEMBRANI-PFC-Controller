@@ -8,11 +8,11 @@
         {
             "name": "PlatformIO",
             "includePath": [
-                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/include",
-                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/src",
+                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/include",
+                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/src",
                 "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
-                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/.pio/libdeps/esp32dev/PubSubClient/src",
-                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/.pio/libdeps/esp32dev/ModbusMaster/src",
+                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/.pio/libdeps/esp32dev/PubSubClient/src",
+                "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/.pio/libdeps/esp32dev/ModbusMaster/src",
                 "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                 "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                 "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
@@ -246,11 +246,11 @@
             "browse": {
                 "limitSymbolsToIncludedHeaders": true,
                 "path": [
-                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/include",
-                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/src",
+                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/include",
+                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/src",
                     "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/libraries/WiFi/src",
-                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/.pio/libdeps/esp32dev/PubSubClient/src",
-                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/.pio/libdeps/esp32dev/ModbusMaster/src",
+                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/.pio/libdeps/esp32dev/PubSubClient/src",
+                    "C:/Users/ahmad/Documents/ELECTRO Workstation/SEMBRANI PFC Controller/Firmware/.pio/libdeps/esp32dev/ModbusMaster/src",
                     "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/newlib/platform_include",
                     "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include",
                     "C:/Users/ahmad/.platformio/packages/framework-arduinoespressif32/tools/sdk/esp32/include/freertos/include/esp_additions/freertos",
