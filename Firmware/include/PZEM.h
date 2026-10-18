@@ -12,6 +12,16 @@ public:
     void readData();
     void printData();
 
+    // Getter untuk mengambil hasil pengukuran
+    float getVoltage();
+    float getCurrent();
+    float getPower();
+    float getEnergy();
+    float getFrequency();
+    float getPF();
+
+    bool isDataValid();
+
 private:
     HardwareSerial pzemSerial;
     PZEM004Tv30 pzem;

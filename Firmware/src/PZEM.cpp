@@ -1,7 +1,7 @@
 #include "PZEM.h"
 
 // ========================================
-// KONFIGURASI
+// KONFIGURASI PZEM
 // ========================================
 
 #define PZEM_RX_PIN 16
@@ -47,7 +47,7 @@ void PZEM::begin()
 }
 
 // ========================================
-// MEMBACA DATA
+// MEMBACA DATA PZEM
 // ========================================
 
 void PZEM::readData()
@@ -68,7 +68,46 @@ void PZEM::readData()
 }
 
 // ========================================
-// MENAMPILKAN DATA
+// GETTER
+// ========================================
+
+float PZEM::getVoltage()
+{
+    return voltage;
+}
+
+float PZEM::getCurrent()
+{
+    return current;
+}
+
+float PZEM::getPower()
+{
+    return power;
+}
+
+float PZEM::getEnergy()
+{
+    return energy;
+}
+
+float PZEM::getFrequency()
+{
+    return frequency;
+}
+
+float PZEM::getPF()
+{
+    return pf;
+}
+
+bool PZEM::isDataValid()
+{
+    return dataValid;
+}
+
+// ========================================
+// SERIAL MONITOR
 // ========================================
 
 void PZEM::printData()
