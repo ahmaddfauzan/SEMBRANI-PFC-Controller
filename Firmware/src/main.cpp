@@ -1,16 +1,29 @@
 #include <Arduino.h>
+#include <math.h>
 
 #include "PZEM.h"
 #include "Display.h"
 #include "IoT.h"
 
+// =====================================================
+// OBJEK
+// =====================================================
+
 PZEM pzem;
 Display display;
 IoT iot;
 
+// =====================================================
+// INTERVAL
+// =====================================================
+
 unsigned long lastMeasurement = 0;
 
 const unsigned long MEASUREMENT_INTERVAL = 2000;
+
+// =====================================================
+// SETUP
+// =====================================================
 
 void setup() {
     Serial.begin(115200);
@@ -21,26 +34,33 @@ void setup() {
     Serial.println(" SEMBRANI PFC CONTROLLER");
     Serial.println("================================");
 
-    pzem.begin();
+    // Inisialisasi display lebih dahulu
     display.begin();
+
+    // Inisialisasi pengukuran
+    pzem.begin();
+
+    // Inisialisasi IoT
     iot.begin();
 
-    Serial.println("System initialized.");
+    Serial.println("[SYSTEM] Initialization complete.");
 }
+
+// =====================================================
+// LOOP
+// =====================================================
 
 void loop() {
     // Menangani koneksi Wi-Fi dan MQTT
     iot.loop();
 
-    // Pembacaan pengukuran setiap 2 detik
+    // Membaca PZEM setiap dua detik
     if (millis() - lastMeasurement >= MEASUREMENT_INTERVAL) {
         lastMeasurement = millis();
 
         pzem.readData();
 
         if (pzem.isDataValid()) {
-            pzem.printData();
-
             float voltage   = pzem.getVoltage();
             float current   = pzem.getCurrent();
             float power     = pzem.getPower();
@@ -48,7 +68,10 @@ void loop() {
             float frequency = pzem.getFrequency();
             float pf        = pzem.getPF();
 
-            // Perbarui TFT LCD
+            // Serial Monitor
+            pzem.printData();
+
+            // Update display
             display.showMeasurements(
                 voltage,
                 current,
@@ -58,7 +81,7 @@ void loop() {
                 pf
             );
 
-            // Kirim data ke dashboard melalui MQTT
+            // Kirim data ke MQTT
             if (iot.isConnected()) {
                 iot.publishPowerData(
                     voltage,
@@ -72,6 +95,7 @@ void loop() {
         } else {
             Serial.println("[PZEM] Communication error.");
 
+            // Tampilkan nilai tidak tersedia
             display.showMeasurements(
                 NAN, NAN, NAN, NAN, NAN, NAN
             );

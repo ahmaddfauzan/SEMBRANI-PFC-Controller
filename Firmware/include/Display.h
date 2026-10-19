@@ -24,10 +24,9 @@ private:
 
     void drawLayout();
 
-    void drawMeasurement(
+    void drawValue(
         int x,
         int y,
-        const char* label,
         float value,
         const char* unit,
         uint8_t decimals
