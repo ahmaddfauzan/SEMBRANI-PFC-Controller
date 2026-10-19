@@ -4,6 +4,7 @@
 #include "PZEM.h"
 #include "Display.h"
 #include "IoT.h"
+#include "Encoder.h"
 
 // =====================================================
 // OBJEK
@@ -12,14 +13,87 @@
 PZEM pzem;
 Display display;
 IoT iot;
+Encoder encoder;
 
 // =====================================================
-// INTERVAL
+// TARGET PF
+// =====================================================
+
+int targetPFValue = 90;
+
+constexpr int TARGET_PF_MIN = 85;
+constexpr int TARGET_PF_MAX = 95;
+
+bool editingTargetPF = false;
+
+// =====================================================
+// INTERVAL PENGUKURAN
 // =====================================================
 
 unsigned long lastMeasurement = 0;
+constexpr unsigned long MEASUREMENT_INTERVAL = 2000;
 
-const unsigned long MEASUREMENT_INTERVAL = 2000;
+// =====================================================
+// TARGET PF
+// =====================================================
+
+float getTargetPF() {
+    return targetPFValue / 100.0f;
+}
+
+void updateTargetPFDisplay() {
+    display.showTargetPF(
+        getTargetPF(),
+        editingTargetPF
+    );
+}
+
+void handleEncoder() {
+    // Selalu perbarui pembacaan GPIO terlebih dahulu.
+    encoder.loop();
+
+    // -------------------------------------------------
+    // TOMBOL PUSH
+    // -------------------------------------------------
+
+    if (encoder.wasPressed()) {
+        editingTargetPF = !editingTargetPF;
+
+        if (editingTargetPF) {
+            Serial.println("[TARGET PF] Edit mode ON");
+        } else {
+            Serial.print("[TARGET PF] Saved: ");
+            Serial.println(getTargetPF(), 2);
+        }
+
+        updateTargetPFDisplay();
+    }
+
+    // -------------------------------------------------
+    // ROTARY ENCODER
+    // -------------------------------------------------
+
+    int8_t rotation = encoder.getRotationDelta();
+
+    if (!editingTargetPF || rotation == 0) {
+        return;
+    }
+
+    targetPFValue += rotation;
+
+    if (targetPFValue < TARGET_PF_MIN) {
+        targetPFValue = TARGET_PF_MIN;
+    }
+
+    if (targetPFValue > TARGET_PF_MAX) {
+        targetPFValue = TARGET_PF_MAX;
+    }
+
+    updateTargetPFDisplay();
+
+    Serial.print("[TARGET PF] Value: ");
+    Serial.println(getTargetPF(), 2);
+}
 
 // =====================================================
 // SETUP
@@ -34,16 +108,14 @@ void setup() {
     Serial.println(" SEMBRANI PFC CONTROLLER");
     Serial.println("================================");
 
-    // Inisialisasi display lebih dahulu
     display.begin();
-
-    // Inisialisasi pengukuran
+    encoder.begin();
     pzem.begin();
-
-    // Inisialisasi IoT
     iot.begin();
 
-    Serial.println("[SYSTEM] Initialization complete.");
+    updateTargetPFDisplay();
+
+    Serial.println("[SYSTEM] Initialization complete");
 }
 
 // =====================================================
@@ -51,10 +123,13 @@ void setup() {
 // =====================================================
 
 void loop() {
-    // Menangani koneksi Wi-Fi dan MQTT
+    // Input encoder diproses pada setiap iterasi.
+    handleEncoder();
+
+    // Pengelolaan Wi-Fi dan MQTT.
     iot.loop();
 
-    // Membaca PZEM setiap dua detik
+    // Pembacaan PZEM setiap dua detik.
     if (millis() - lastMeasurement >= MEASUREMENT_INTERVAL) {
         lastMeasurement = millis();
 
@@ -68,10 +143,8 @@ void loop() {
             float frequency = pzem.getFrequency();
             float pf        = pzem.getPF();
 
-            // Serial Monitor
             pzem.printData();
 
-            // Update display
             display.showMeasurements(
                 voltage,
                 current,
@@ -81,7 +154,6 @@ void loop() {
                 pf
             );
 
-            // Kirim data ke MQTT
             if (iot.isConnected()) {
                 iot.publishPowerData(
                     voltage,
@@ -95,7 +167,6 @@ void loop() {
         } else {
             Serial.println("[PZEM] Communication error.");
 
-            // Tampilkan nilai tidak tersedia
             display.showMeasurements(
                 NAN, NAN, NAN, NAN, NAN, NAN
             );

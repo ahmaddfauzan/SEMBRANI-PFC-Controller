@@ -40,6 +40,9 @@ void Display::begin() {
 
     drawLayout();
 
+    // Nilai awal Target PF.
+    showTargetPF(0.90f, false);
+
     Serial.println("[Display] Initialization complete.");
 }
 
@@ -50,23 +53,25 @@ void Display::begin() {
 void Display::drawLayout() {
     tft.fillScreen(BG_COLOR);
 
-    // Header
+    // Header utama: dipertahankan.
     tft.setTextFont(1);
     tft.setTextSize(2);
     tft.setTextColor(HEADER_COLOR, BG_COLOR);
     tft.setCursor(10, 8);
     tft.print("SEMBRANI PFC");
 
+    // Subtitle: dipertahankan.
     tft.setTextSize(1);
     tft.setTextColor(LABEL_COLOR, BG_COLOR);
     tft.setCursor(10, 30);
     tft.print("POWER MONITORING SYSTEM");
 
+    // Garis header: dipertahankan.
     tft.drawFastHLine(
         10, 45, tft.width() - 20, HEADER_COLOR
     );
 
-    // Parameter pengukuran
+    // Parameter pengukuran.
     const int x1 = 10;
     const int x2 = 165;
 
@@ -79,7 +84,7 @@ void Display::drawLayout() {
     drawValue(x1, 168, NAN, "Hz", 1);
     drawValue(x2, 168, NAN, "PF", 2);
 
-    // Label parameter
+    // Label parameter.
     tft.setTextFont(1);
     tft.setTextSize(1);
     tft.setTextColor(LABEL_COLOR, BG_COLOR);
@@ -102,7 +107,7 @@ void Display::drawLayout() {
     tft.setCursor(x2, 168);
     tft.print("POWER FACTOR");
 
-    // Footer
+    // Footer.
     tft.drawFastHLine(
         10, 225, tft.width() - 20, LINE_COLOR
     );
@@ -113,7 +118,7 @@ void Display::drawLayout() {
 }
 
 // =====================================================
-// GAMBAR NILAI
+// GAMBAR NILAI PENGUKURAN
 // =====================================================
 
 void Display::drawValue(
@@ -123,7 +128,7 @@ void Display::drawValue(
     const char* unit,
     uint8_t decimals
 ) {
-    // Area khusus untuk nilai
+    // Area khusus nilai pengukuran.
     tft.fillRect(x, y + 17, 145, 28, BG_COLOR);
 
     tft.setTextFont(1);
@@ -138,11 +143,49 @@ void Display::drawValue(
         tft.print(value, decimals);
     }
 
-    // Satuan
+    // Satuan.
     tft.setTextSize(1);
     tft.setTextColor(HEADER_COLOR, BG_COLOR);
     tft.setCursor(x + 108, y + 32);
     tft.print(unit);
+}
+
+// =====================================================
+// UPDATE TARGET PF
+// =====================================================
+
+void Display::showTargetPF(float targetPF, bool editing) {
+    // Area khusus Target PF di pojok kanan atas.
+    // Tidak menggambar ulang seluruh LCD.
+    const int boxX = 220;
+    const int boxY = 5;
+    const int boxW = 92;
+    const int boxH = 38;
+
+    uint16_t background = editing ? TFT_WHITE : BG_COLOR;
+    uint16_t foreground = editing ? TFT_BLACK : TFT_YELLOW;
+
+    tft.fillRect(
+        boxX,
+        boxY,
+        boxW,
+        boxH,
+        background
+    );
+
+    // Label Target PF.
+    tft.setTextFont(1);
+    tft.setTextSize(1);
+    tft.setTextColor(foreground, background);
+    tft.setCursor(boxX + 2, boxY + 3);
+    tft.print("TARGET PF");
+
+    // Nilai Target PF.
+    tft.setTextSize(2);
+    tft.setTextColor(foreground, background);
+    tft.setCursor(boxX + 2, boxY + 18);
+    tft.print(targetPF, 2);
+
 }
 
 // =====================================================

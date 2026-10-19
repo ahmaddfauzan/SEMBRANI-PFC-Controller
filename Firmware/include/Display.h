@@ -19,6 +19,10 @@ public:
         float pf
     );
 
+    // Menampilkan Target PF.
+    // editing = true: nilai berlatar putih dengan teks hitam.
+    void showTargetPF(float targetPF, bool editing);
+
 private:
     TFT_eSPI tft;
 
