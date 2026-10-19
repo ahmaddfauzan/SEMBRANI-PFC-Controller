@@ -1,132 +1,100 @@
 #include "Display.h"
+#include <math.h>
 
-// ========================================
-// KONFIGURASI TAMPILAN
-// ========================================
+#define BG_COLOR       TFT_BLACK
+#define PANEL_COLOR    0x18E3
+#define TEXT_COLOR     TFT_WHITE
+#define LABEL_COLOR    0xBDF7
+#define ACCENT_COLOR   TFT_CYAN
+#define VALUE_COLOR   TFT_GREEN
+#define ERROR_COLOR    TFT_RED
 
-#define SCREEN_WIDTH  240
-#define SCREEN_HEIGHT 320
-
-// Warna RGB565
-#define COLOR_BACKGROUND  0x0841
-#define COLOR_PANEL       0x10A2
-#define COLOR_WHITE       0xFFFF
-#define COLOR_CYAN        0x07FF
-#define COLOR_GREEN       0x07E0
-#define COLOR_YELLOW      0xFFE0
-#define COLOR_GRAY        0xBDF7
-#define COLOR_RED         0xF800
-
-// ========================================
-// CONSTRUCTOR
-// ========================================
-
-Display::Display()
-{
+Display::Display() {
 }
 
-// ========================================
-// INISIALISASI DISPLAY
-// ========================================
+void Display::begin() {
+    Serial.println("[Display] Initializing ST7789...");
 
-void Display::begin()
-{
     tft.init();
-
-    // Orientasi portrait
-    tft.setRotation(0);
-
-    tft.fillScreen(COLOR_BACKGROUND);
+    tft.setRotation(1);
+    tft.fillScreen(BG_COLOR);
 
     drawLayout();
+
+    Serial.println("[Display] Initialized.");
 }
 
-// ========================================
-// MEMBUAT LAYOUT
-// ========================================
+void Display::drawLayout() {
+    tft.fillScreen(BG_COLOR);
 
-void Display::drawLayout()
-{
     // Header
-    tft.fillRect(
-        0, 0,
-        SCREEN_WIDTH, 48,
-        COLOR_PANEL
-    );
-
-    tft.setTextColor(COLOR_CYAN, COLOR_PANEL);
     tft.setTextSize(2);
-    tft.setCursor(12, 8);
-    tft.println("SEMBRANI");
+    tft.setTextColor(ACCENT_COLOR, BG_COLOR);
+    tft.setCursor(10, 8);
+    tft.print("SEMBRANI PFC");
 
-    tft.setTextColor(COLOR_WHITE, COLOR_PANEL);
     tft.setTextSize(1);
-    tft.setCursor(13, 31);
-    tft.println("POWER MONITOR");
+    tft.setTextColor(LABEL_COLOR, BG_COLOR);
+    tft.setCursor(10, 29);
+    tft.print("POWER MONITORING SYSTEM");
 
-    // Garis pemisah header
-    tft.drawFastHLine(
-        0, 48,
-        SCREEN_WIDTH,
-        COLOR_CYAN
+    tft.drawFastHLine(10, 44, 300, ACCENT_COLOR);
+
+    // Enam panel pengukuran
+    drawMeasurement(10, 54, "VOLTAGE", NAN, "V", 1);
+    drawMeasurement(165, 54, "CURRENT", NAN, "A", 3);
+
+    drawMeasurement(10, 111, "ACTIVE POWER", NAN, "W", 1);
+    drawMeasurement(165, 111, "ENERGY", NAN, "kWh", 3);
+
+    drawMeasurement(10, 168, "FREQUENCY", NAN, "Hz", 1);
+    drawMeasurement(165, 168, "POWER FACTOR", NAN, "PF", 2);
+
+    // Footer
+    tft.drawFastHLine(10, 225, 300, ACCENT_COLOR);
+
+    tft.setTextSize(1);
+    tft.setTextColor(LABEL_COLOR, BG_COLOR);
+    tft.setCursor(10, 231);
+    tft.print("SEMBRANI | ESP32 | PZEM-004T");
+}
+
+void Display::drawMeasurement(
+    int x,
+    int y,
+    const char* label,
+    float value,
+    const char* unit,
+    uint8_t decimals
+) {
+    const int width = 145;
+    const int height = 48;
+
+    tft.fillRoundRect(
+        x, y, width, height, 5, PANEL_COLOR
     );
 
-    // Area pengukuran
-    const int rowY[] = {
-        58, 112, 166, 220, 274
-    };
+    tft.setTextSize(1);
+    tft.setTextColor(LABEL_COLOR, PANEL_COLOR);
+    tft.setCursor(x + 7, y + 5);
+    tft.print(label);
 
-    for (int i = 0; i < 5; i++)
-    {
-        tft.fillRoundRect(
-            8,
-            rowY[i],
-            224,
-            46,
-            5,
-            COLOR_PANEL
-        );
+    tft.setTextSize(2);
+    tft.setCursor(x + 7, y + 21);
+
+    if (isnan(value) || isinf(value)) {
+        tft.setTextColor(ERROR_COLOR, PANEL_COLOR);
+        tft.print("--");
+    } else {
+        tft.setTextColor(VALUE_COLOR, PANEL_COLOR);
+        tft.print(value, decimals);
     }
 
-    // Label pengukuran
     tft.setTextSize(1);
-    tft.setTextColor(COLOR_GRAY, COLOR_PANEL);
-
-    tft.setCursor(16, 65);
-    tft.print("VOLTAGE");
-
-    tft.setCursor(16, 119);
-    tft.print("CURRENT");
-
-    tft.setCursor(16, 173);
-    tft.print("ACTIVE POWER");
-
-    tft.setCursor(16, 227);
-    tft.print("ENERGY");
-
-    tft.setCursor(16, 281);
-    tft.print("FREQUENCY");
-
-    // Footer untuk power factor
-    tft.fillRect(
-        0, 304,
-        SCREEN_WIDTH, 16,
-        COLOR_BACKGROUND
-    );
-
-    tft.setTextColor(COLOR_YELLOW, COLOR_BACKGROUND);
-    tft.setTextSize(1);
-    tft.setCursor(12, 307);
-    tft.print("POWER FACTOR:");
-
-    tft.setTextColor(COLOR_WHITE, COLOR_BACKGROUND);
-    tft.setCursor(112, 307);
-    tft.print("--");
+    tft.setTextColor(LABEL_COLOR, PANEL_COLOR);
+    tft.setCursor(x + 105, y + 30);
+    tft.print(unit);
 }
-
-// ========================================
-// MEMPERBARUI HASIL PENGUKURAN
-// ========================================
 
 void Display::showMeasurements(
     float voltage,
@@ -135,114 +103,14 @@ void Display::showMeasurements(
     float energy,
     float frequency,
     float pf
-)
-{
-    // ====================================
-    // VALIDASI DATA
-    // ====================================
+) {
+    // Hanya memperbarui area nilai
+    drawMeasurement(10, 54, "VOLTAGE", voltage, "V", 1);
+    drawMeasurement(165, 54, "CURRENT", current, "A", 3);
 
-    if (
-        isnan(voltage) ||
-        isnan(current) ||
-        isnan(power) ||
-        isnan(energy) ||
-        isnan(frequency) ||
-        isnan(pf)
-    )
-    {
-        tft.fillRect(
-            0, 49,
-            SCREEN_WIDTH, 255,
-            COLOR_BACKGROUND
-        );
+    drawMeasurement(10, 111, "ACTIVE POWER", power, "W", 1);
+    drawMeasurement(165, 111, "ENERGY", energy, "kWh", 3);
 
-        tft.setTextColor(COLOR_RED, COLOR_BACKGROUND);
-        tft.setTextSize(2);
-        tft.setCursor(15, 135);
-        tft.println("PZEM ERROR");
-
-        tft.setTextColor(COLOR_WHITE, COLOR_BACKGROUND);
-        tft.setTextSize(1);
-        tft.setCursor(15, 160);
-        tft.println("Check communication");
-
-        return;
-    }
-
-    // ====================================
-    // VOLTAGE
-    // ====================================
-
-    tft.fillRect(14, 79, 212, 21, COLOR_PANEL);
-
-    tft.setTextColor(COLOR_CYAN, COLOR_PANEL);
-    tft.setTextSize(2);
-    tft.setCursor(16, 81);
-
-    tft.print(voltage, 1);
-    tft.print(" V");
-
-    // ====================================
-    // CURRENT
-    // ====================================
-
-    tft.fillRect(14, 133, 212, 21, COLOR_PANEL);
-
-    tft.setTextColor(COLOR_GREEN, COLOR_PANEL);
-    tft.setTextSize(2);
-    tft.setCursor(16, 135);
-
-    tft.print(current, 3);
-    tft.print(" A");
-
-    // ====================================
-    // ACTIVE POWER
-    // ====================================
-
-    tft.fillRect(14, 187, 212, 21, COLOR_PANEL);
-
-    tft.setTextColor(COLOR_YELLOW, COLOR_PANEL);
-    tft.setTextSize(2);
-    tft.setCursor(16, 189);
-
-    tft.print(power, 1);
-    tft.print(" W");
-
-    // ====================================
-    // ENERGY
-    // ====================================
-
-    tft.fillRect(14, 241, 212, 21, COLOR_PANEL);
-
-    tft.setTextColor(COLOR_WHITE, COLOR_PANEL);
-    tft.setTextSize(2);
-    tft.setCursor(16, 243);
-
-    tft.print(energy, 3);
-    tft.print(" kWh");
-
-    // ====================================
-    // FREQUENCY
-    // ====================================
-
-    tft.fillRect(14, 295, 212, 7, COLOR_PANEL);
-
-    tft.setTextColor(COLOR_CYAN, COLOR_PANEL);
-    tft.setTextSize(1);
-    tft.setCursor(16, 295);
-
-    tft.print(frequency, 1);
-    tft.print(" Hz");
-
-    // ====================================
-    // POWER FACTOR
-    // ====================================
-
-    tft.fillRect(112, 307, 116, 12, COLOR_BACKGROUND);
-
-    tft.setTextColor(COLOR_GREEN, COLOR_BACKGROUND);
-    tft.setTextSize(1);
-    tft.setCursor(112, 307);
-
-    tft.print(pf, 2);
+    drawMeasurement(10, 168, "FREQUENCY", frequency, "Hz", 1);
+    drawMeasurement(165, 168, "POWER FACTOR", pf, "PF", 2);
 }

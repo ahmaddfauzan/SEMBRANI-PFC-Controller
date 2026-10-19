@@ -23,6 +23,15 @@ private:
     TFT_eSPI tft;
 
     void drawLayout();
+
+    void drawMeasurement(
+        int x,
+        int y,
+        const char* label,
+        float value,
+        const char* unit,
+        uint8_t decimals
+    );
 };
 
 #endif
