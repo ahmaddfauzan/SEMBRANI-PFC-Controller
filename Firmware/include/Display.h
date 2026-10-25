@@ -4,6 +4,21 @@
 #include <Arduino.h>
 #include <TFT_eSPI.h>
 
+enum class DisplayMenu : uint8_t {
+    MODE = 0,
+    CAPACITOR_STEP,
+    TARGET_PF,
+    PAGE
+};
+
+struct DisplayConfig {
+    bool threePhase;
+    float capacitorPerStepKvar;
+    float targetPF;
+    uint8_t page;
+    uint8_t pageCount;
+};
+
 class Display {
 public:
     Display();
@@ -19,14 +34,42 @@ public:
         float pf
     );
 
-    // Menampilkan Target PF.
-    // editing = true: nilai berlatar putih dengan teks hitam.
-    void showTargetPF(float targetPF, bool editing);
+    void updateMenu(
+        const DisplayConfig& config,
+        DisplayMenu selectedMenu,
+        bool frameVisible,
+        bool editing
+    );
+
+    void showPageIndicator(uint8_t page, uint8_t pageCount);
 
 private:
     TFT_eSPI tft;
 
+    DisplayConfig currentConfig;
+
+    DisplayMenu currentMenu;
+    bool currentFrameVisible;
+    bool currentEditing;
+
+    float voltageValue;
+    float currentValue;
+    float powerValue;
+    float energyValue;
+    float frequencyValue;
+    float pfValue;
+
     void drawLayout();
+    void drawHeader();
+    void drawMeasurements();
+    void drawFooter();
+    void drawMenuItem(
+        int x,
+        int width,
+        DisplayMenu menu,
+        const char* label,
+        const char* value
+    );
 
     void drawValue(
         int x,

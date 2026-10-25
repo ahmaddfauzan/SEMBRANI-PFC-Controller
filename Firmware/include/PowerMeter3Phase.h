@@ -40,9 +40,9 @@ public:
     PowerMeter3PhaseData getData();
 
 private:
-    static constexpr uint8_t RX_PIN = 26;
-    static constexpr uint8_t TX_PIN = 27;
-    static constexpr uint8_t DE_RE_PIN = 14;
+    static constexpr uint8_t RX_PIN = 14;
+    static constexpr uint8_t TX_PIN = 13;
+    static constexpr uint8_t DE_RE_PIN = 21;
 
     static constexpr uint32_t BAUD_RATE = 9600;
     static constexpr uint8_t SLAVE_ID = 1;
