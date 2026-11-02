@@ -1,133 +1,178 @@
-const MQTT_BROKER = "ws://broker.emqx.io:8083/mqtt";
+/*
+ * SEMBRANI PFC Dashboard
+ * MQTT data topic : sembrani/powermeter
+ * MQTT control topic: sembrani/control
+ *
+ * PENTING:
+ * Format perintah target PF di bawah adalah rancangan awal.
+ * Sesuaikan CONTROL_TOPIC dan payload dengan parser MQTT pada firmware ESP32.
+ */
+
+const MQTT_BROKER = "wss://broker.emqx.io:8084/mqtt";
 const MQTT_TOPIC = "sembrani/powermeter";
+const CONTROL_TOPIC = "sembrani/control";
 
 const mqttStatus = document.getElementById("mqttStatus");
+const lastUpdate = document.getElementById("lastUpdate");
+const controlMessage = document.getElementById("controlMessage");
+const sendTargetBtn = document.getElementById("sendTargetBtn");
 
-const clientId =
-    "sembrani-dashboard-" +
-    Math.random().toString(16).substring(2, 10);
+const clientId = "sembrani-dashboard-" + Math.random().toString(16).slice(2, 10);
 
-const client = mqtt.connect(MQTT_BROKER, {
-    clientId: clientId,
-    clean: true,
-    connectTimeout: 5000,
-    reconnectPeriod: 2000
-});
-
-function setValue(id, value, decimals = 2)
-{
-    const element = document.getElementById(id);
-
-    if (!element) {
-        return;
-    }
-
-    if (value === undefined || value === null || Number.isNaN(Number(value))) {
-        element.textContent = "--";
-        return;
-    }
-
-    element.textContent = Number(value).toFixed(decimals);
+function setConnectionStatus(text, state) {
+  mqttStatus.innerHTML = '<span class="status-dot"></span><span>' + text + '</span>';
+  mqttStatus.className = "status-pill" + (state === "connected" ? " connected" : "");
 }
 
-client.on("connect", function ()
-{
-    console.log("MQTT connected");
+function setValue(id, value, decimals = 2) {
+  const element = document.getElementById(id);
+  if (!element) return;
 
-    mqttStatus.textContent = "MQTT Connected";
-    mqttStatus.className = "badge text-bg-success";
+  if (value === undefined || value === null || value === "" || !Number.isFinite(Number(value))) {
+    element.textContent = "--";
+    return;
+  }
+  element.textContent = Number(value).toFixed(decimals);
+}
 
-    client.subscribe(MQTT_TOPIC, function (error)
-    {
-        if (error) {
-            console.error("Subscribe failed:", error);
-            mqttStatus.textContent = "Subscribe Error";
-            mqttStatus.className = "badge text-bg-danger";
-        }
-        else {
-            console.log("Subscribed to:", MQTT_TOPIC);
-        }
+function updatePowerFactor(value) {
+  setValue("powerFactor", value, 3);
+  const bar = document.getElementById("pfProgress");
+  if (bar && Number.isFinite(Number(value))) {
+    const pf = Math.max(0, Math.min(1, Number(value)));
+    bar.style.width = (pf * 100) + "%";
+  }
+}
+
+function setDisplayMode(mode) {
+  const isThreePhase = mode === "3";
+  document.getElementById("mode1Btn").classList.toggle("active", !isThreePhase);
+  document.getElementById("mode3Btn").classList.toggle("active", isThreePhase);
+  document.getElementById("mode1Btn").setAttribute("aria-pressed", String(!isThreePhase));
+  document.getElementById("mode3Btn").setAttribute("aria-pressed", String(isThreePhase));
+
+  document.querySelectorAll(".phase-3-only").forEach((element) => {
+    element.hidden = !isThreePhase;
+  });
+  document.getElementById("phase2Section").hidden = !isThreePhase;
+  document.getElementById("phase3Section").hidden = !isThreePhase;
+}
+
+document.getElementById("mode1Btn").addEventListener("click", () => setDisplayMode("1"));
+document.getElementById("mode3Btn").addEventListener("click", () => setDisplayMode("3"));
+setDisplayMode("1"); // Mode awal hanya mengubah tampilan browser, bukan mode kerja ESP32.
+
+let client = null;
+
+if (typeof mqtt === "undefined") {
+  setConnectionStatus("Library MQTT gagal dimuat", "error");
+} else {
+  client = mqtt.connect(MQTT_BROKER, {
+    clientId,
+    clean: true,
+    connectTimeout: 10000,
+    reconnectPeriod: 3000,
+    keepalive: 30
+  });
+
+  client.on("connect", () => {
+    setConnectionStatus("MQTT terhubung", "connected");
+    client.subscribe(MQTT_TOPIC, (error) => {
+      if (error) {
+        console.error("Subscribe gagal:", error);
+        setConnectionStatus("Gagal subscribe", "error");
+      }
     });
-});
+  });
 
-client.on("reconnect", function ()
-{
-    console.log("MQTT reconnecting...");
-
-    mqttStatus.textContent = "MQTT Reconnecting";
-    mqttStatus.className = "badge text-bg-warning";
-});
-
-client.on("offline", function ()
-{
-    console.log("MQTT offline");
-
-    mqttStatus.textContent = "MQTT Offline";
-    mqttStatus.className = "badge text-bg-secondary";
-});
-
-client.on("error", function (error)
-{
+  client.on("reconnect", () => setConnectionStatus("Menghubungkan ulang...", "pending"));
+  client.on("offline", () => setConnectionStatus("MQTT offline", "offline"));
+  client.on("close", () => setConnectionStatus("MQTT terputus", "offline"));
+  client.on("error", (error) => {
     console.error("MQTT error:", error);
+    setConnectionStatus("MQTT error", "error");
+  });
 
-    mqttStatus.textContent = "MQTT Error";
-    mqttStatus.className = "badge text-bg-danger";
-});
-
-client.on("message", function (topic, message)
-{
-    if (topic !== MQTT_TOPIC) {
-        return;
-    }
+  client.on("message", (topic, message) => {
+    if (topic !== MQTT_TOPIC) return;
 
     try {
-        const data = JSON.parse(message.toString());
+      const data = JSON.parse(message.toString());
 
-        console.log("Power data:", data);
+      setValue("activePower", data.activePower);
+      setValue("reactivePower", data.reactivePower);
+      setValue("apparentPower", data.apparentPower);
+      updatePowerFactor(data.powerFactor);
 
-        // Total / system
-        setValue("activePower", data.activePower);
-        setValue("reactivePower", data.reactivePower);
-        setValue("apparentPower", data.apparentPower);
-        setValue("powerFactor", data.powerFactor, 3);
+      setValue("voltageLL", data.voltageLL);
+      setValue("voltageLN", data.voltageLN);
+      setValue("current", data.current);
+      setValue("frequency", data.frequency);
 
-        setValue("voltageLL", data.voltageLL);
-        setValue("voltageLN", data.voltageLN);
-        setValue("current", data.current);
-        setValue("frequency", data.frequency);
+      setValue("voltageL1N", data.voltageL1N);
+      setValue("voltageL2N", data.voltageL2N);
+      setValue("voltageL3N", data.voltageL3N);
+      setValue("voltageL1L2", data.voltageL1L2);
+      setValue("voltageL2L3", data.voltageL2L3);
+      setValue("voltageL1L3", data.voltageL1L3);
 
-        // Voltage
-        setValue("voltageL1N", data.voltageL1N);
-        setValue("voltageL2N", data.voltageL2N);
-        setValue("voltageL3N", data.voltageL3N);
+      setValue("apparentPowerL1", data.apparentPowerL1);
+      setValue("activePowerL1", data.activePowerL1);
+      setValue("reactivePowerL1", data.reactivePowerL1);
+      setValue("powerFactorL1", data.powerFactorL1, 3);
+      setValue("currentL1", data.currentL1);
 
-        setValue("voltageL1L2", data.voltageL1L2);
-        setValue("voltageL2L3", data.voltageL2L3);
-        setValue("voltageL1L3", data.voltageL1L3);
+      setValue("apparentPowerL2", data.apparentPowerL2);
+      setValue("activePowerL2", data.activePowerL2);
+      setValue("reactivePowerL2", data.reactivePowerL2);
+      setValue("powerFactorL2", data.powerFactorL2, 3);
+      setValue("currentL2", data.currentL2);
 
-        // Phase 1
-        setValue("apparentPowerL1", data.apparentPowerL1);
-        setValue("activePowerL1", data.activePowerL1);
-        setValue("reactivePowerL1", data.reactivePowerL1);
-        setValue("powerFactorL1", data.powerFactorL1, 3);
-        setValue("currentL1", data.currentL1);
+      setValue("apparentPowerL3", data.apparentPowerL3);
+      setValue("activePowerL3", data.activePowerL3);
+      setValue("reactivePowerL3", data.reactivePowerL3);
+      setValue("powerFactorL3", data.powerFactorL3, 3);
+      setValue("currentL3", data.currentL3);
 
-        // Phase 2
-        setValue("apparentPowerL2", data.apparentPowerL2);
-        setValue("activePowerL2", data.activePowerL2);
-        setValue("reactivePowerL2", data.reactivePowerL2);
-        setValue("powerFactorL2", data.powerFactorL2, 3);
-        setValue("currentL2", data.currentL2);
-
-        // Phase 3
-        setValue("apparentPowerL3", data.apparentPowerL3);
-        setValue("activePowerL3", data.activePowerL3);
-        setValue("reactivePowerL3", data.reactivePowerL3);
-        setValue("powerFactorL3", data.powerFactorL3, 3);
-        setValue("currentL3", data.currentL3);
-
+      lastUpdate.textContent = new Date().toLocaleString("id-ID");
+    } catch (error) {
+      console.error("Pesan MQTT bukan JSON yang valid:", error);
     }
-    catch (error) {
-        console.error("Invalid MQTT JSON:", error);
+  });
+}
+
+sendTargetBtn.addEventListener("click", () => {
+  const input = document.getElementById("targetPF");
+  const targetPF = Number(input.value);
+
+  if (!Number.isFinite(targetPF) || targetPF < 0.80 || targetPF > 1.00) {
+    controlMessage.textContent = "Nilai tidak valid. Masukkan target PF antara 0.80 sampai 1.00.";
+    controlMessage.style.color = "#c0392b";
+    input.focus();
+    return;
+  }
+
+  if (!client || !client.connected) {
+    controlMessage.textContent = "Belum terkirim: koneksi MQTT belum terhubung.";
+    controlMessage.style.color = "#c0392b";
+    return;
+  }
+
+  // FORMAT INI HARUS DISESUAIKAN DENGAN FIRMWARE ESP32.
+  const command = {
+    command: "set_target_pf",
+    targetPF: Number(targetPF.toFixed(2))
+  };
+
+  client.publish(CONTROL_TOPIC, JSON.stringify(command), { qos: 0, retain: false }, (error) => {
+    if (error) {
+      controlMessage.textContent = "Gagal mengirim target PF: " + error.message;
+      controlMessage.style.color = "#c0392b";
+    } else {
+      controlMessage.textContent = "Perintah target PF " + targetPF.toFixed(2) +
+        " telah dikirim ke topic " + CONTROL_TOPIC + ". Menunggu konfirmasi dari ESP32.";
+      controlMessage.style.color = "#16845d";
+      console.log("Perintah kontrol terkirim:", command);
     }
+  });
 });

@@ -1,326 +1,180 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>SEMBRANI PFC Controller</title>
-
-    <link
-        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-        rel="stylesheet"
-    >
-
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-
-    <style>
-        body {
-            background: #f5f6f8;
-        }
-
-        .card {
-            border: none;
-            border-radius: 12px;
-        }
-
-        .value {
-            font-size: 1.5rem;
-            font-weight: 600;
-        }
-
-        .unit {
-            color: #6c757d;
-            font-size: 0.9rem;
-        }
-
-        .section-title {
-            margin-top: 28px;
-            margin-bottom: 14px;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0b1730">
+  <title>SEMBRANI PFC Controller</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+  <style>
+    :root{--navy:#0b1730;--navy2:#142747;--blue:#3b82f6;--cyan:#22c7d8;--bg:#f3f6fb;--ink:#17243b;--muted:#718096;--line:#e7edf5;--green:#15966a}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Arial,sans-serif}
+    .topbar{background:linear-gradient(120deg,var(--navy),var(--navy2));color:#fff;padding:25px 0 72px}
+    .brand-mark{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#27c5d8,#3b82f6);display:grid;place-items:center;font-weight:800;font-size:19px;box-shadow:0 8px 22px #0003}
+    .eyebrow{font-size:.72rem;letter-spacing:.15em;text-transform:uppercase;color:#9eb4d4;font-weight:700}
+    .top-title{font-size:clamp(1.45rem,3vw,2rem);font-weight:750;letter-spacing:-.03em}
+    .top-sub{color:#b7c6dc;font-size:.95rem}
+    .status-pill{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;border:1px solid #ffffff30;border-radius:999px;background:#ffffff12;font-size:.8rem;color:#eaf2ff}
+    .status-dot{width:8px;height:8px;border-radius:50%;background:#f4b740}
+    .status-pill.connected .status-dot{background:#31d69a;box-shadow:0 0 0 4px #31d69a22}
+    .main-wrap{margin-top:-48px;padding-bottom:42px}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 10px 30px #1d35570a}
+    .panel-pad{padding:21px}
+    .section-heading{font-weight:750;font-size:1.05rem;margin:0}
+    .section-caption{color:var(--muted);font-size:.82rem;margin-top:4px}
+    .metric{height:100%;padding:17px;border:1px solid var(--line);border-radius:15px;background:#fff;transition:transform .18s,box-shadow .18s}
+    .metric:hover{transform:translateY(-2px);box-shadow:0 9px 22px #1d355710}
+    .metric-label{font-size:.82rem;color:var(--muted);font-weight:600}
+    .metric-value{font-size:clamp(1.35rem,2vw,1.75rem);font-weight:750;letter-spacing:-.04em;margin:8px 0 1px;color:#152541;overflow-wrap:anywhere}
+    .metric-unit{font-size:.78rem;color:#94a0b2}
+    .metric-icon{width:34px;height:34px;border-radius:11px;background:#edf5ff;color:#3478d4;display:grid;place-items:center;font-weight:800}
+    .hero-pf{background:linear-gradient(135deg,#10294d,#174477);color:white;border:0}
+    .hero-pf .metric-label,.hero-pf .metric-unit{color:#b7cce6}
+    .hero-pf .metric-value{color:white;font-size:2.3rem}
+    .pf-track{height:7px;border-radius:99px;background:#ffffff25;overflow:hidden;margin-top:13px}
+    .pf-fill{height:100%;width:0;background:linear-gradient(90deg,#23c6d8,#5de0ad);border-radius:99px;transition:width .35s}
+    .control-input{border:1px solid #dce5f0;border-radius:11px;padding:11px 12px;font-weight:650}
+    .btn-primary{background:#2869d8;border-color:#2869d8;border-radius:11px;padding:10px 16px;font-weight:650}
+    .btn-outline-primary{border-radius:11px;font-weight:650}
+    .mode-switch{display:inline-flex;background:#edf2f8;padding:4px;border-radius:12px;gap:4px}
+    .mode-btn{border:0;background:transparent;padding:8px 14px;border-radius:9px;color:#60718a;font-weight:700;font-size:.85rem}
+    .mode-btn.active{background:#fff;color:#1e5dbb;box-shadow:0 2px 7px #19365b18}
+    .phase-tag{font-size:.72rem;font-weight:750;letter-spacing:.06em;color:#3478d4;background:#edf5ff;padding:6px 9px;border-radius:8px}
+    .phase-section[hidden]{display:none!important}
+    .notice{border-radius:12px;background:#fff8e8;border:1px solid #f5e2b4;color:#795b18;padding:12px 14px;font-size:.82rem}
+    .footer-note{color:#8a97aa;font-size:.78rem}
+    .small-label{font-size:.75rem;color:var(--muted)}
+    @media(max-width:575px){.topbar{padding-bottom:65px}.panel-pad{padding:16px}.metric{padding:14px}.header-actions{margin-top:17px}}
+  </style>
 </head>
-
 <body>
-
-<div class="container py-4">
-
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<header class="topbar">
+  <div class="container">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+      <div class="d-flex align-items-center gap-3">
+        <div class="brand-mark">S</div>
         <div>
-            <h2 class="mb-1">SEMBRANI PFC Controller</h2>
-            <p class="text-muted mb-0">
-                Power Monitoring Dashboard
-            </p>
+          <div class="eyebrow">Smart power monitoring</div>
+          <div class="top-title">SEMBRANI PFC Controller</div>
+          <div class="top-sub">Power Monitoring &amp; Correction Dashboard</div>
         </div>
-
-        <span id="mqttStatus" class="badge text-bg-secondary">
-            MQTT Disconnected
-        </span>
+      </div>
+      <div class="header-actions text-end">
+        <div id="mqttStatus" class="status-pill"><span class="status-dot"></span><span>MQTT menghubungkan...</span></div>
+        <div class="small mt-2" style="color:#9eb4d4">Pembaruan: <span id="lastUpdate">Belum ada data</span></div>
+      </div>
     </div>
+  </div>
+</header>
 
-    <!-- TOTAL / SYSTEM -->
-    <h4 class="section-title">Total / System</h4>
+<main class="container main-wrap">
+  <section class="panel panel-pad mb-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3">
+      <div>
+        <h2 class="section-heading">Ringkasan sistem</h2>
+        <div class="section-caption">Pantau parameter listrik dan atur target faktor daya.</div>
+      </div>
+      <div class="d-flex align-items-center gap-2 flex-wrap">
+        <span class="small-label fw-semibold">Tampilan sistem</span>
+        <div class="mode-switch" role="group" aria-label="Pilih tampilan fase">
+          <button type="button" class="mode-btn active" id="mode1Btn" aria-pressed="true">1 Phase</button>
+          <button type="button" class="mode-btn" id="mode3Btn" aria-pressed="false">3 Phase</button>
+        </div>
+      </div>
+    </div>
+  </section>
 
+  <section class="row g-3 mb-4">
+    <div class="col-12 col-md-6 col-xl-3">
+      <div class="metric hero-pf h-100">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="metric-label">Power Factor Aktual</div><div class="metric-icon" style="background:#ffffff20;color:#fff">PF</div>
+        </div>
+        <div class="metric-value" id="powerFactor">--</div>
+        <div class="metric-unit">Faktor daya terukur</div>
+        <div class="pf-track"><div class="pf-fill" id="pfProgress"></div></div>
+        <div class="d-flex justify-content-between mt-2"><span class="metric-unit">0.00</span><span class="metric-unit">1.00</span></div>
+      </div>
+    </div>
+    <div class="col-6 col-md-6 col-xl-3"><div class="metric h-100"><div class="d-flex justify-content-between"><div class="metric-label">Active Power</div><div class="metric-icon">W</div></div><div class="metric-value" id="activePower">--</div><div class="metric-unit">Watt (W)</div></div></div>
+    <div class="col-6 col-md-6 col-xl-3"><div class="metric h-100"><div class="d-flex justify-content-between"><div class="metric-label">Reactive Power</div><div class="metric-icon">Q</div></div><div class="metric-value" id="reactivePower">--</div><div class="metric-unit">VAR</div></div></div>
+    <div class="col-6 col-md-6 col-xl-3"><div class="metric h-100"><div class="d-flex justify-content-between"><div class="metric-label">Apparent Power</div><div class="metric-icon">S</div></div><div class="metric-value" id="apparentPower">--</div><div class="metric-unit">VA</div></div></div>
+    <div class="col-6 col-md-6 col-xl-3"><div class="metric h-100"><div class="metric-label">Tegangan L-N</div><div class="metric-value" id="voltageLN">--</div><div class="metric-unit">Volt (V)</div></div></div>
+    <div class="col-6 col-md-6 col-xl-3"><div class="metric h-100"><div class="metric-label">Tegangan L-L</div><div class="metric-value" id="voltageLL">--</div><div class="metric-unit">Volt (V)</div></div></div>
+    <div class="col-6 col-md-6 col-xl-3"><div class="metric h-100"><div class="metric-label">Arus</div><div class="metric-value" id="current">--</div><div class="metric-unit">Ampere (A)</div></div></div>
+    <div class="col-6 col-md-6 col-xl-3"><div class="metric h-100"><div class="metric-label">Frekuensi</div><div class="metric-value" id="frequency">--</div><div class="metric-unit">Hertz (Hz)</div></div></div>
+  </section>
+
+  <section class="panel panel-pad mb-4">
+    <div class="row g-3 align-items-center">
+      <div class="col-12 col-lg-5">
+        <h2 class="section-heading">Kontrol target Power Factor</h2>
+        <div class="section-caption">Masukkan nilai target PF yang ingin dikirim ke pengendali.</div>
+      </div>
+      <div class="col-12 col-sm-7 col-lg-4">
+        <label for="targetPF" class="form-label small-label fw-semibold mb-1">Target PF (0.80–1.00)</label>
+        <input id="targetPF" class="form-control control-input" type="number" min="0.80" max="1.00" step="0.01" value="0.95" inputmode="decimal">
+      </div>
+      <div class="col-12 col-sm-5 col-lg-3 d-grid">
+        <button id="sendTargetBtn" type="button" class="btn btn-primary">Kirim Target PF</button>
+      </div>
+      <div class="col-12"><div id="controlMessage" class="small-label" aria-live="polite">Target belum dikirim dari dashboard.</div></div>
+    </div>
+  </section>
+
+  <section class="panel panel-pad mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <div><h2 class="section-heading">Parameter tegangan</h2><div class="section-caption">Pengukuran tegangan antar-fasa dan fasa-netral.</div></div>
+      <span class="phase-tag">VOLTAGE</span>
+    </div>
     <div class="row g-3">
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Active Power</div>
-                <div class="value" id="activePower">--</div>
-                <div class="unit">W</div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Reactive Power</div>
-                <div class="value" id="reactivePower">--</div>
-                <div class="unit">VAR</div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Apparent Power</div>
-                <div class="value" id="apparentPower">--</div>
-                <div class="unit">VA</div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Power Factor</div>
-                <div class="value" id="powerFactor">--</div>
-                <div class="unit">PF</div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Voltage L-L</div>
-                <div class="value" id="voltageLL">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Voltage L-N</div>
-                <div class="value" id="voltageLN">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Current</div>
-                <div class="value" id="current">--</div>
-                <div class="unit">A</div>
-            </div>
-        </div>
-
-        <div class="col-md-3">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">Frequency</div>
-                <div class="value" id="frequency">--</div>
-                <div class="unit">Hz</div>
-            </div>
-        </div>
-
+      <div class="col-6 col-md-4 col-lg-2"><div class="metric"><div class="metric-label">L1 – N</div><div class="metric-value" id="voltageL1N">--</div><div class="metric-unit">V</div></div></div>
+      <div class="col-6 col-md-4 col-lg-2 phase-3-only"><div class="metric"><div class="metric-label">L2 – N</div><div class="metric-value" id="voltageL2N">--</div><div class="metric-unit">V</div></div></div>
+      <div class="col-6 col-md-4 col-lg-2 phase-3-only"><div class="metric"><div class="metric-label">L3 – N</div><div class="metric-value" id="voltageL3N">--</div><div class="metric-unit">V</div></div></div>
+      <div class="col-6 col-md-4 col-lg-2 phase-3-only"><div class="metric"><div class="metric-label">L1 – L2</div><div class="metric-value" id="voltageL1L2">--</div><div class="metric-unit">V</div></div></div>
+      <div class="col-6 col-md-4 col-lg-2 phase-3-only"><div class="metric"><div class="metric-label">L2 – L3</div><div class="metric-value" id="voltageL2L3">--</div><div class="metric-unit">V</div></div></div>
+      <div class="col-6 col-md-4 col-lg-2 phase-3-only"><div class="metric"><div class="metric-label">L1 – L3</div><div class="metric-value" id="voltageL1L3">--</div><div class="metric-unit">V</div></div></div>
     </div>
+  </section>
 
-    <!-- VOLTAGE -->
-    <h4 class="section-title">Voltage</h4>
-
+  <section class="panel panel-pad mb-4 phase-section" id="phase1Section">
+    <div class="d-flex justify-content-between align-items-center mb-3"><div><h2 class="section-heading">Detail Phase 1</h2><div class="section-caption">Parameter listrik pada fasa pertama.</div></div><span class="phase-tag">L1</span></div>
     <div class="row g-3">
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">L1-N</div>
-                <div class="value" id="voltageL1N">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">L2-N</div>
-                <div class="value" id="voltageL2N">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">L3-N</div>
-                <div class="value" id="voltageL3N">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">L1-L2</div>
-                <div class="value" id="voltageL1L2">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">L2-L3</div>
-                <div class="value" id="voltageL2L3">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">L1-L3</div>
-                <div class="value" id="voltageL1L3">--</div>
-                <div class="unit">V</div>
-            </div>
-        </div>
-
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Apparent Power</div><div class="metric-value" id="apparentPowerL1">--</div><div class="metric-unit">VA</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Active Power</div><div class="metric-value" id="activePowerL1">--</div><div class="metric-unit">W</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Reactive Power</div><div class="metric-value" id="reactivePowerL1">--</div><div class="metric-unit">VAR</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Power Factor</div><div class="metric-value" id="powerFactorL1">--</div><div class="metric-unit">PF</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Current</div><div class="metric-value" id="currentL1">--</div><div class="metric-unit">A</div></div></div>
     </div>
+  </section>
 
-    <!-- PHASE 1 -->
-    <h4 class="section-title">Phase 1</h4>
-
+  <section class="panel panel-pad mb-4 phase-section phase-3-only" id="phase2Section" hidden>
+    <div class="d-flex justify-content-between align-items-center mb-3"><div><h2 class="section-heading">Detail Phase 2</h2><div class="section-caption">Parameter listrik pada fasa kedua.</div></div><span class="phase-tag">L2</span></div>
     <div class="row g-3">
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">VA1</div>
-                <div class="value" id="apparentPowerL1">--</div>
-                <div class="unit">VA</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">W1</div>
-                <div class="value" id="activePowerL1">--</div>
-                <div class="unit">W</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">VAR1</div>
-                <div class="value" id="reactivePowerL1">--</div>
-                <div class="unit">VAR</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">PF1</div>
-                <div class="value" id="powerFactorL1">--</div>
-                <div class="unit">PF</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">A1</div>
-                <div class="value" id="currentL1">--</div>
-                <div class="unit">A</div>
-            </div>
-        </div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Apparent Power</div><div class="metric-value" id="apparentPowerL2">--</div><div class="metric-unit">VA</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Active Power</div><div class="metric-value" id="activePowerL2">--</div><div class="metric-unit">W</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Reactive Power</div><div class="metric-value" id="reactivePowerL2">--</div><div class="metric-unit">VAR</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Power Factor</div><div class="metric-value" id="powerFactorL2">--</div><div class="metric-unit">PF</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Current</div><div class="metric-value" id="currentL2">--</div><div class="metric-unit">A</div></div></div>
     </div>
+  </section>
 
-    <!-- PHASE 2 -->
-    <h4 class="section-title">Phase 2</h4>
-
+  <section class="panel panel-pad mb-4 phase-section phase-3-only" id="phase3Section" hidden>
+    <div class="d-flex justify-content-between align-items-center mb-3"><div><h2 class="section-heading">Detail Phase 3</h2><div class="section-caption">Parameter listrik pada fasa ketiga.</div></div><span class="phase-tag">L3</span></div>
     <div class="row g-3">
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">VA2</div>
-                <div class="value" id="apparentPowerL2">--</div>
-                <div class="unit">VA</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">W2</div>
-                <div class="value" id="activePowerL2">--</div>
-                <div class="unit">W</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">VAR2</div>
-                <div class="value" id="reactivePowerL2">--</div>
-                <div class="unit">VAR</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">PF2</div>
-                <div class="value" id="powerFactorL2">--</div>
-                <div class="unit">PF</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">A2</div>
-                <div class="value" id="currentL2">--</div>
-                <div class="unit">A</div>
-            </div>
-        </div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Apparent Power</div><div class="metric-value" id="apparentPowerL3">--</div><div class="metric-unit">VA</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Active Power</div><div class="metric-value" id="activePowerL3">--</div><div class="metric-unit">W</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Reactive Power</div><div class="metric-value" id="reactivePowerL3">--</div><div class="metric-unit">VAR</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Power Factor</div><div class="metric-value" id="powerFactorL3">--</div><div class="metric-unit">PF</div></div></div>
+      <div class="col-6 col-md"><div class="metric"><div class="metric-label">Current</div><div class="metric-value" id="currentL3">--</div><div class="metric-unit">A</div></div></div>
     </div>
+  </section>
 
-    <!-- PHASE 3 -->
-    <h4 class="section-title">Phase 3</h4>
-
-    <div class="row g-3">
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">VA3</div>
-                <div class="value" id="apparentPowerL3">--</div>
-                <div class="unit">VA</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">W3</div>
-                <div class="value" id="activePowerL3">--</div>
-                <div class="unit">W</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">VAR3</div>
-                <div class="value" id="reactivePowerL3">--</div>
-                <div class="unit">VAR</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">PF3</div>
-                <div class="value" id="powerFactorL3">--</div>
-                <div class="unit">PF</div>
-            </div>
-        </div>
-
-        <div class="col-md-2">
-            <div class="card shadow-sm p-3">
-                <div class="text-muted">A3</div>
-                <div class="value" id="currentL3">--</div>
-                <div class="unit">A</div>
-            </div>
-        </div>
-    </div>
-
-</div>
-
+  <div class="notice mb-3"><strong>Catatan kontrol:</strong> tombol target PF mengirim perintah MQTT ke ESP32. Pastikan topic dan format perintah pada bagian konfigurasi JavaScript sama dengan firmware sebelum digunakan untuk mengendalikan alat.</div>
+  <div class="d-flex justify-content-between flex-wrap gap-2 footer-note"><span>SEMBRANI PFC Controller · Monitoring Interface</span><span>Data ditampilkan sesuai pesan MQTT yang diterima.</span></div>
+</main>
 <script src="scripts.js"></script>
-
 </body>
 </html>
