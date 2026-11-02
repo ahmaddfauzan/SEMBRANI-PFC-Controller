@@ -91,6 +91,7 @@ void registerInteraction() {
 // =====================================================
 
 void editSelectedMenu(int direction) {
+    const int previousTargetPFValue = targetPFValue;
     switch (selectedMenu) {
         case DisplayMenu::MODE:
             threePhaseMode = !threePhaseMode;
@@ -138,6 +139,11 @@ void editSelectedMenu(int direction) {
     }
 
     updateDisplayMenu();
+
+    // Sinkronkan perubahan target PF dari encoder TFT ke dashboard.
+    if (targetPFValue != previousTargetPFValue) {
+        iot.publishTargetPFState(getTargetPF());
+    }
 
     Serial.printf(
         "[MENU] Mode=%s C/Step=%.1f kVAr TargetPF=%.2f Page=%u/%u\n",
@@ -238,6 +244,15 @@ void loop() {
     handleEncoder();
 
     iot.loop();
+
+    // Kirim setpoint aktual saat MQTT baru tersambung (termasuk setelah restart).
+    static bool targetPFStatePublished = false;
+    if (iot.isConnected() && !targetPFStatePublished) {
+        iot.publishTargetPFState(getTargetPF());
+        targetPFStatePublished = true;
+    } else if (!iot.isConnected()) {
+        targetPFStatePublished = false;
+    }
 
     // Terapkan perintah target PF dari dashboard setelah diterima dan divalidasi.
     float requestedTargetPF = 0.0f;

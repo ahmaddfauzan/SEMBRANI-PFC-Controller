@@ -47,6 +47,29 @@ function updatePowerFactor(value) {
   }
 }
 
+// Sinkronisasi setpoint dari ESP32 ke input dashboard.
+// Firmware dapat mengirim status "applied", "state", atau "updated".
+function syncTargetPF(value, sourceStatus = "state") {
+  const pf = Number(value);
+  if (!Number.isFinite(pf) || pf < 0.85 || pf > 0.99) return;
+
+  const input = document.getElementById("targetPF");
+  if (input) input.value = pf.toFixed(2);
+
+  if (pendingTargetPFTimer) {
+    clearTimeout(pendingTargetPFTimer);
+    pendingTargetPFTimer = null;
+  }
+  pendingTargetPF = null;
+
+  if (sourceStatus === "applied") {
+    controlMessage.textContent = "ESP32 mengonfirmasi: Target PF " + pf.toFixed(2) + " berhasil diterapkan.";
+  } else {
+    controlMessage.textContent = "Target PF tersinkron dari ESP32: " + pf.toFixed(2) + ".";
+  }
+  controlMessage.style.color = "#16845d";
+}
+
 function setDisplayMode(mode) {
   const isThreePhase = mode === "3";
   document.getElementById("mode1Btn").classList.toggle("active", !isThreePhase);
@@ -63,7 +86,7 @@ function setDisplayMode(mode) {
 
 document.getElementById("mode1Btn").addEventListener("click", () => setDisplayMode("1"));
 document.getElementById("mode3Btn").addEventListener("click", () => setDisplayMode("3"));
-setDisplayMode("1"); // Mode awal hanya mengubah tampilan browser, bukan mode kerja ESP32.
+setDisplayMode("1");
 
 let client = null;
 
@@ -110,11 +133,11 @@ if (typeof mqtt === "undefined") {
     }
 
     if (topic === CONTROL_ACK_TOPIC) {
-      if (data.command === "set_target_pf" && data.status === "applied") {
-        if (pendingTargetPFTimer) clearTimeout(pendingTargetPFTimer);
-        pendingTargetPF = null;
-        controlMessage.textContent = "ESP32 mengonfirmasi: Target PF " + Number(data.targetPF).toFixed(2) + " berhasil diterapkan.";
-        controlMessage.style.color = "#16845d";
+      if (
+        data.command === "set_target_pf" &&
+        ["applied", "state", "updated", "sync"].includes(data.status)
+      ) {
+        syncTargetPF(data.targetPF, data.status);
       }
       return;
     }
@@ -132,6 +155,11 @@ if (typeof mqtt === "undefined") {
       setValue("voltageLN", data.voltageLN);
       setValue("current", data.current);
       setValue("frequency", data.frequency);
+
+      // Jika firmware menyertakan setpoint pada telemetry, gunakan untuk sinkronisasi TFT -> Web.
+      if (data.targetPF !== undefined && pendingTargetPF === null) {
+        syncTargetPF(data.targetPF, "state");
+      }
 
       setValue("voltageL1N", data.voltageL1N);
       setValue("voltageL2N", data.voltageL2N);

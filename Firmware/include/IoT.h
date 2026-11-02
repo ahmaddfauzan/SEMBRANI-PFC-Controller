@@ -17,6 +17,8 @@ public:
 
     // Dipanggil main.cpp setelah target PF diterapkan ke variabel sistem.
     void publishTargetPFAck(float targetPF);
+    // Publikasikan setpoint terkini ESP32, termasuk perubahan dari encoder TFT.
+    void publishTargetPFState(float targetPF);
 
     void publishPowerData(
         float voltage,

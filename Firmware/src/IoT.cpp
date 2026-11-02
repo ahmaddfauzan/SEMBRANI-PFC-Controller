@@ -258,6 +258,27 @@ void IoT::publishTargetPFAck(float targetPF) {
     }
 }
 
+// Kirim nilai aktual ESP32. Pesan retained membuat browser baru menerima
+// target PF terakhir meskipun perubahan dilakukan sebelum dashboard dibuka.
+void IoT::publishTargetPFState(float targetPF) {
+    if (!isConnected()) {
+        Serial.println("[MQTT] Cannot publish target PF state: disconnected.");
+        return;
+    }
+
+    char payload[180];
+    snprintf(payload, sizeof(payload),
+        "{\"status\":\"state\",\"command\":\"set_target_pf\",\"source\":\"esp32\",\"targetPF\":%.2f}",
+        targetPF);
+
+    if (mqttClient.publish(MQTT_CONTROL_ACK_TOPIC, payload, true)) {
+        Serial.print("[MQTT] Target PF state published: ");
+        Serial.println(payload);
+    } else {
+        Serial.println("[MQTT] Failed to publish target PF state.");
+    }
+}
+
 // =====================================================
 // LOOP IOT
 // =====================================================
