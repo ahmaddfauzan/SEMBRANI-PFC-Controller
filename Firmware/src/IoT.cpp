@@ -2,13 +2,7 @@
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include <math.h>
-
-// =====================================================
-// KONFIGURASI WI-FI
-// =====================================================
-
-static const char* WIFI_SSID = "R PRO JOGJA";
-static const char* WIFI_PASSWORD = "wifigratis21";
+#include "secrets.h"
 
 // =====================================================
 // KONFIGURASI MQTT
@@ -64,8 +58,8 @@ static const char* getWiFiStatusText(wl_status_t status) {
 
 IoT::IoT()
     : mqttClient(wifiClient),
-      wifiSSID(WIFI_SSID),
-      wifiPassword(WIFI_PASSWORD),
+      wifiSSID(SEMBRANI_WIFI_SSID),
+      wifiPassword(SEMBRANI_WIFI_PASSWORD),
       mqttServer(MQTT_SERVER),
       mqttPort(MQTT_PORT),
       mqttTopic(MQTT_TOPIC),
@@ -262,8 +256,86 @@ void IoT::publishPowerData(
         return;
     }
 
-    // Estimasi daya semu untuk pengukuran satu fase
-    float apparentPower = voltage * current;
+    // ================================================
+    // VALIDASI DATA
+    // ================================================
+
+    const bool validVI =
+        isfinite(voltage) &&
+        isfinite(current) &&
+        voltage >= 0.0f &&
+        current >= 0.0f;
+
+    const bool validP = isfinite(power);
+
+    // ================================================
+    // PERHITUNGAN DAYA SEMU (S)
+    // S = V x I
+    // ================================================
+
+    const float apparentPower =
+        validVI ? voltage * current : NAN;
+
+    // ================================================
+    // PERHITUNGAN DAYA REAKTIF (Q)
+    // Q = sqrt(S² - P²)
+    // ================================================
+
+    float reactivePower = NAN;
+
+    bool reactivePowerValid =
+        validVI &&
+        validP &&
+        isfinite(apparentPower) &&
+        apparentPower >= 0.0f;
+
+    if (reactivePowerValid) {
+
+        const float pMagnitude = fabsf(power);
+
+        float qSquared =
+            apparentPower * apparentPower -
+            pMagnitude * pMagnitude;
+
+        const float tolerance =
+            0.01f * apparentPower * apparentPower + 0.01f;
+
+        // Koreksi selisih negatif kecil akibat pembulatan sensor
+        if (qSquared < 0.0f && qSquared >= -tolerance) {
+            qSquared = 0.0f;
+        }
+
+        if (qSquared >= 0.0f && isfinite(qSquared)) {
+            reactivePower = sqrtf(qSquared);
+        } else {
+            reactivePowerValid = false;
+        }
+    }
+
+    // ================================================
+    // FORMAT DATA REACTIVE POWER
+    // ================================================
+
+    char reactivePowerText[24];
+
+    if (reactivePowerValid && isfinite(reactivePower)) {
+        snprintf(
+            reactivePowerText,
+            sizeof(reactivePowerText),
+            "%.2f",
+            reactivePower
+        );
+    } else {
+        snprintf(
+            reactivePowerText,
+            sizeof(reactivePowerText),
+            "null"
+        );
+    }
+
+    // ================================================
+    // FORMAT PAYLOAD MQTT
+    // ================================================
 
     char payload[768];
 
@@ -272,7 +344,7 @@ void IoT::publishPowerData(
         sizeof(payload),
         "{"
             "\"activePower\":%.2f,"
-            "\"reactivePower\":null,"
+            "\"reactivePower\":%s,"
             "\"apparentPower\":%.2f,"
             "\"powerFactor\":%.3f,"
             "\"voltageLL\":null,"
@@ -303,13 +375,18 @@ void IoT::publishPowerData(
             "\"currentL3\":null"
         "}",
         power,
-        apparentPower,
+        reactivePowerText,
+        isfinite(apparentPower) ? apparentPower : 0.0f,
         powerFactor,
         voltage,
         current,
         frequency,
         energy
     );
+
+    // ================================================
+    // PUBLIKASI MQTT
+    // ================================================
 
     bool success = mqttClient.publish(
         mqttTopic,

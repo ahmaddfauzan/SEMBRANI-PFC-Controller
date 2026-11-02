@@ -1,0 +1,7 @@
+#ifndef SEMBRANI_SECRETS_H
+#define SEMBRANI_SECRETS_H
+
+#define SEMBRANI_WIFI_SSID "R PRO JOGJA"
+#define SEMBRANI_WIFI_PASSWORD "wifigratis21"
+
+#endif
