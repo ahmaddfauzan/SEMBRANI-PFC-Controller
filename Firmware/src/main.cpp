@@ -239,6 +239,18 @@ void loop() {
 
     iot.loop();
 
+    // Terapkan perintah target PF dari dashboard setelah diterima dan divalidasi.
+    float requestedTargetPF = 0.0f;
+    if (iot.consumeTargetPF(requestedTargetPF)) {
+        int newTargetPFValue = (int)lroundf(requestedTargetPF * 100.0f);
+        if (newTargetPFValue >= TARGET_PF_MIN && newTargetPFValue <= TARGET_PF_MAX) {
+            targetPFValue = newTargetPFValue;
+            updateDisplayMenu();
+            Serial.printf("[CONTROL] Target PF applied: %.2f\n", getTargetPF());
+            iot.publishTargetPFAck(getTargetPF());
+        }
+    }
+
     if (millis() - lastMeasurement >= MEASUREMENT_INTERVAL) {
         lastMeasurement = millis();
 

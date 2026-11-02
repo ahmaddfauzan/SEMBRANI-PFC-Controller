@@ -11,6 +11,12 @@
 static const char* MQTT_SERVER = "broker.emqx.io";
 static const uint16_t MQTT_PORT = 1883;
 static const char* MQTT_TOPIC = "sembrani/powermeter";
+static const char* MQTT_CONTROL_TOPIC = "sembrani/control";
+static const char* MQTT_CONTROL_ACK_TOPIC = "sembrani/control/ack";
+static constexpr float TARGET_PF_MIN = 0.85f;
+static constexpr float TARGET_PF_MAX = 0.99f;
+
+IoT* IoT::callbackInstance = nullptr;
 
 // =====================================================
 // INTERVAL
@@ -64,7 +70,10 @@ IoT::IoT()
       mqttPort(MQTT_PORT),
       mqttTopic(MQTT_TOPIC),
       lastPublish(0),
-      lastReconnectAttempt(0) {
+      lastReconnectAttempt(0),
+      targetPFCommandPending(false),
+      requestedTargetPF(0.95f) {
+    callbackInstance = this;
 }
 
 // =====================================================
@@ -84,6 +93,7 @@ void IoT::begin() {
     mqttClient.setBufferSize(1024);
     mqttClient.setKeepAlive(30);
     mqttClient.setSocketTimeout(5);
+    mqttClient.setCallback(IoT::mqttMessageCallback);
 
     Serial.print("[WiFi] SSID: ");
     Serial.println(wifiSSID);
@@ -151,11 +161,100 @@ void IoT::connectMQTT() {
     if (mqttClient.connect(clientId.c_str())) {
         Serial.println("[MQTT] Connected.");
 
-        Serial.print("[MQTT] Topic: ");
+        if (mqttClient.subscribe(MQTT_CONTROL_TOPIC, 0)) {
+            Serial.print("[MQTT] Subscribed: ");
+            Serial.println(MQTT_CONTROL_TOPIC);
+        } else {
+            Serial.println("[MQTT] Control subscription failed.");
+        }
+
+        Serial.print("[MQTT] Telemetry topic: ");
         Serial.println(mqttTopic);
     } else {
         Serial.print("[MQTT] Connection failed. State: ");
         Serial.println(mqttClient.state());
+    }
+}
+
+// =====================================================
+// MQTT CALLBACK
+// =====================================================
+
+void IoT::mqttMessageCallback(char* topic, byte* payload, unsigned int length) {
+    if (callbackInstance != nullptr) {
+        callbackInstance->handleMqttMessage(topic, payload, length);
+    }
+}
+
+void IoT::handleMqttMessage(const char* topic, const byte* payload, unsigned int length) {
+    if (topic == nullptr || strcmp(topic, MQTT_CONTROL_TOPIC) != 0 || payload == nullptr) {
+        return;
+    }
+
+    // Salin payload menjadi string yang diakhiri null.
+    char message[256];
+    if (length == 0 || length >= sizeof(message)) {
+        Serial.println("[MQTT] Control payload rejected: invalid length.");
+        return;
+    }
+    memcpy(message, payload, length);
+    message[length] = '\0';
+
+    // Format yang diterima: {"command":"set_target_pf","targetPF":0.95}
+    if (strstr(message, "\"command\"") == nullptr ||
+        strstr(message, "set_target_pf") == nullptr) {
+        Serial.println("[MQTT] Control command rejected: unknown command.");
+        return;
+    }
+
+    char* valueKey = strstr(message, "targetPF");
+    if (valueKey == nullptr) {
+        Serial.println("[MQTT] Control command rejected: targetPF missing.");
+        return;
+    }
+
+    char* colon = strchr(valueKey, ':');
+    if (colon == nullptr) return;
+
+    char* endPointer = nullptr;
+    float value = strtof(colon + 1, &endPointer);
+    if (endPointer == colon + 1 || !isfinite(value) ||
+        value < TARGET_PF_MIN || value > TARGET_PF_MAX) {
+        Serial.println("[MQTT] Target PF rejected. Allowed range: 0.85 - 0.99.");
+        return;
+    }
+
+    requestedTargetPF = value;
+    targetPFCommandPending = true;
+
+    Serial.print("[MQTT] Target PF command received: ");
+    Serial.println(requestedTargetPF, 2);
+}
+
+bool IoT::consumeTargetPF(float &targetPF) {
+    if (!targetPFCommandPending) return false;
+
+    targetPF = requestedTargetPF;
+    targetPFCommandPending = false;
+    return true;
+}
+
+void IoT::publishTargetPFAck(float targetPF) {
+    if (!isConnected()) {
+        Serial.println("[MQTT] Cannot send target PF ACK: disconnected.");
+        return;
+    }
+
+    char payload[160];
+    snprintf(payload, sizeof(payload),
+        "{\"status\":\"applied\",\"command\":\"set_target_pf\",\"targetPF\":%.2f}",
+        targetPF);
+
+    if (mqttClient.publish(MQTT_CONTROL_ACK_TOPIC, payload, false)) {
+        Serial.print("[MQTT] Target PF ACK sent: ");
+        Serial.println(payload);
+    } else {
+        Serial.println("[MQTT] Failed to publish target PF ACK.");
     }
 }
 

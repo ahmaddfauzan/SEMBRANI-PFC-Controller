@@ -11,6 +11,9 @@
 const MQTT_BROKER = "wss://broker.emqx.io:8084/mqtt";
 const MQTT_TOPIC = "sembrani/powermeter";
 const CONTROL_TOPIC = "sembrani/control";
+const CONTROL_ACK_TOPIC = "sembrani/control/ack";
+let pendingTargetPF = null;
+let pendingTargetPFTimer = null;
 
 const mqttStatus = document.getElementById("mqttStatus");
 const lastUpdate = document.getElementById("lastUpdate");
@@ -79,9 +82,13 @@ if (typeof mqtt === "undefined") {
     setConnectionStatus("MQTT terhubung", "connected");
     client.subscribe(MQTT_TOPIC, (error) => {
       if (error) {
-        console.error("Subscribe gagal:", error);
+        console.error("Subscribe telemetry gagal:", error);
         setConnectionStatus("Gagal subscribe", "error");
       }
+    });
+    client.subscribe(CONTROL_ACK_TOPIC, (error) => {
+      if (error) console.error("Subscribe ACK gagal:", error);
+      else console.log("Menunggu konfirmasi ESP32 pada", CONTROL_ACK_TOPIC);
     });
   });
 
@@ -94,10 +101,27 @@ if (typeof mqtt === "undefined") {
   });
 
   client.on("message", (topic, message) => {
+    let data;
+    try {
+      data = JSON.parse(message.toString());
+    } catch (error) {
+      console.error("Pesan MQTT bukan JSON yang valid:", error);
+      return;
+    }
+
+    if (topic === CONTROL_ACK_TOPIC) {
+      if (data.command === "set_target_pf" && data.status === "applied") {
+        if (pendingTargetPFTimer) clearTimeout(pendingTargetPFTimer);
+        pendingTargetPF = null;
+        controlMessage.textContent = "ESP32 mengonfirmasi: Target PF " + Number(data.targetPF).toFixed(2) + " berhasil diterapkan.";
+        controlMessage.style.color = "#16845d";
+      }
+      return;
+    }
+
     if (topic !== MQTT_TOPIC) return;
 
     try {
-      const data = JSON.parse(message.toString());
 
       setValue("activePower", data.activePower);
       setValue("reactivePower", data.reactivePower);
@@ -145,8 +169,8 @@ sendTargetBtn.addEventListener("click", () => {
   const input = document.getElementById("targetPF");
   const targetPF = Number(input.value);
 
-  if (!Number.isFinite(targetPF) || targetPF < 0.80 || targetPF > 1.00) {
-    controlMessage.textContent = "Nilai tidak valid. Masukkan target PF antara 0.80 sampai 1.00.";
+  if (!Number.isFinite(targetPF) || targetPF < 0.85 || targetPF > 0.99) {
+    controlMessage.textContent = "Nilai tidak valid. Masukkan target PF antara 0.85 sampai 0.99.";
     controlMessage.style.color = "#c0392b";
     input.focus();
     return;
@@ -158,7 +182,12 @@ sendTargetBtn.addEventListener("click", () => {
     return;
   }
 
-  // FORMAT INI HARUS DISESUAIKAN DENGAN FIRMWARE ESP32.
+  if (pendingTargetPF !== null) {
+    controlMessage.textContent = "Masih menunggu konfirmasi target PF sebelumnya.";
+    controlMessage.style.color = "#c0392b";
+    return;
+  }
+
   const command = {
     command: "set_target_pf",
     targetPF: Number(targetPF.toFixed(2))
@@ -169,9 +198,17 @@ sendTargetBtn.addEventListener("click", () => {
       controlMessage.textContent = "Gagal mengirim target PF: " + error.message;
       controlMessage.style.color = "#c0392b";
     } else {
-      controlMessage.textContent = "Perintah target PF " + targetPF.toFixed(2) +
-        " telah dikirim ke topic " + CONTROL_TOPIC + ". Menunggu konfirmasi dari ESP32.";
-      controlMessage.style.color = "#16845d";
+      pendingTargetPF = command.targetPF;
+      controlMessage.textContent = "Target PF " + targetPF.toFixed(2) + " terkirim. Menunggu konfirmasi ESP32...";
+      controlMessage.style.color = "#9a6700";
+      if (pendingTargetPFTimer) clearTimeout(pendingTargetPFTimer);
+      pendingTargetPFTimer = setTimeout(() => {
+        if (pendingTargetPF !== null) {
+          pendingTargetPF = null;
+          controlMessage.textContent = "Belum ada konfirmasi dari ESP32. Periksa koneksi dan Serial Monitor.";
+          controlMessage.style.color = "#c0392b";
+        }
+      }, 10000);
       console.log("Perintah kontrol terkirim:", command);
     }
   });
